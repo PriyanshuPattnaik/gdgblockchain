@@ -1,0 +1,21 @@
+{
+  "name": "starfall-codex",
+  "private": true,
+  "description": "Decentralized marketplace for unique Starfall Codex game cards",
+  "workspaces": [
+    "contracts",
+    "frontend"
+  ],
+  "scripts": {
+    "compile": "npm run compile -w contracts",
+    "test": "npm test -w contracts",
+    "node": "npm run node -w contracts",
+    "deploy:local": "npm run deploy:local -w contracts",
+    "deploy:sepolia": "npm run deploy:sepolia -w contracts",
+    "dev": "npm run dev -w frontend",
+    "build": "npm run build -w frontend"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
