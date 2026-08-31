@@ -18,3 +18,4 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 frontend/lib/deployed.local.json
+frontend/.local-ipfs

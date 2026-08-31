@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { publicOrigin, saveLocalBlob } from "@/lib/local-store";
 
 export const runtime = "nodejs";
 
@@ -7,12 +8,13 @@ export async function POST(request: Request) {
   const file = form.get("file");
   const jsonField = form.get("json");
   const jwt = process.env.PINATA_JWT;
+  const origin = publicOrigin(request);
 
   try {
     if (typeof jsonField === "string") {
       if (!jwt) {
-        const uri = `data:application/json;base64,${Buffer.from(jsonField, "utf8").toString("base64")}`;
-        return NextResponse.json({ uri, fallback: true });
+        const hash = await saveLocalBlob(Buffer.from(jsonField, "utf8"), "application/json");
+        return NextResponse.json({ uri: `${origin}/api/meta/${hash}`, fallback: true });
       }
       const res = await fetch("https://api.pinata.cloud/pinning/pinJSONToIPFS", {
         method: "POST",
@@ -33,13 +35,11 @@ export async function POST(request: Request) {
     }
 
     if (file instanceof File) {
+      const bytes = Buffer.from(await file.arrayBuffer());
+      const mime = file.type || "application/octet-stream";
       if (!jwt) {
-        const bytes = Buffer.from(await file.arrayBuffer());
-        const mime = file.type || "application/octet-stream";
-        return NextResponse.json({
-          uri: `data:${mime};base64,${bytes.toString("base64")}`,
-          fallback: true,
-        });
+        const hash = await saveLocalBlob(bytes, mime);
+        return NextResponse.json({ uri: `${origin}/api/meta/${hash}`, fallback: true });
       }
       const pinataForm = new FormData();
       pinataForm.set("file", file);
