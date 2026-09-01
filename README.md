@@ -149,10 +149,10 @@ Click **Connect**, pick MetaMask, approve Hardhat Localhost.
 
 Walk through the product:
 
-1. **Inscribe** — name, description, traits, optional image. Mint.
-2. **My relics** — cards `ownerOf` maps to your address.
+1. **Create** — name, description, traits, optional image. Mint.
+2. **Inventory** — cards `ownerOf` maps to your address.
 3. Open a card → **Approve marketplace** → set a price → **List for sale**.
-4. Switch MetaMask to Account #1 → Cabinet → buy the listing.
+4. Switch MetaMask to Account #1 → **Market** → buy the listing.
 
 Without a Pinata JWT, metadata is stored as a `data:` URI on the token. That is enough for local demos. Add Pinata when you want real IPFS CIDs.
 

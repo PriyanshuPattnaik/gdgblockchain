@@ -1,11 +1,12 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { formatEther, parseEther } from "viem";
+import { parseEther } from "viem";
 import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import { waitForTransactionReceipt } from "wagmi/actions";
 import { cardAbi, marketAbi } from "@/lib/abi";
 import { getAddresses } from "@/lib/contracts";
+import { formatEth } from "@/lib/format";
 import { wagmiConfig } from "@/lib/wagmi";
 import type { OnChainCard } from "@/lib/types";
 
@@ -19,7 +20,7 @@ export function TradePanel({
   const { address, isConnected, chainId } = useAccount();
   const { card: cardAddress, market } = getAddresses(chainId);
   const { writeContractAsync, isPending } = useWriteContract();
-  const [price, setPrice] = useState(card.listed ? formatEther(card.price) : "0.05");
+  const [price, setPrice] = useState(card.listed ? formatEth(card.price) : "0.05");
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
 
@@ -33,10 +34,7 @@ export function TradePanel({
     query: { enabled: Boolean(isOwner && address && market) },
   });
 
-  async function send(
-    fn: () => Promise<`0x${string}`>,
-    pending: string
-  ) {
+  async function send(fn: () => Promise<`0x${string}`>, pending: string) {
     setError("");
     setStatus(pending);
     try {
@@ -60,7 +58,7 @@ export function TradePanel({
           functionName: "setApprovalForAll",
           args: [market, true],
         }),
-      "Approving marketplace…"
+      "Approving marketplace"
     );
     await approved.refetch();
   }
@@ -68,16 +66,15 @@ export function TradePanel({
   async function onList(event: FormEvent) {
     event.preventDefault();
     if (!market) return;
-    const value = parseEther(price);
     await send(
       () =>
         writeContractAsync({
           address: market,
           abi: marketAbi,
           functionName: "listCard",
-          args: [BigInt(card.tokenId), value],
+          args: [BigInt(card.tokenId), parseEther(price)],
         }),
-      "Listing card…"
+      "Listing card"
     );
   }
 
@@ -92,7 +89,7 @@ export function TradePanel({
           functionName: "updatePrice",
           args: [BigInt(card.tokenId), parseEther(price)],
         }),
-      "Updating price…"
+      "Updating price"
     );
   }
 
@@ -106,7 +103,7 @@ export function TradePanel({
           functionName: "cancelListing",
           args: [BigInt(card.tokenId)],
         }),
-      "Cancelling listing…"
+      "Cancelling listing"
     );
   }
 
@@ -121,32 +118,39 @@ export function TradePanel({
           args: [BigInt(card.tokenId)],
           value: card.price,
         }),
-      "Buying card…"
+      "Buying card"
     );
-  }
-
-  if (!isConnected) {
-    return <p className="mt-8 text-sm text-mist">Connect a wallet to list or buy this card.</p>;
   }
 
   const busy = isPending || Boolean(status);
 
   return (
-    <section className="mt-10 max-w-md border border-[oklch(0.85_0.04_85/0.2)] bg-dusk/50 p-5">
-      {error ? <p className="mb-3 text-sm text-ember">{error}</p> : null}
-      {status ? <p className="mb-3 text-sm text-gold">{status}</p> : null}
+    <section className="rounded-xl border border-[oklch(0.85_0.04_80/0.16)] bg-plank p-5">
+      <p className="text-[0.65rem] uppercase tracking-[0.16em] text-mute">Order box</p>
+      {card.listed ? (
+        <p className="mt-2 font-display text-4xl text-brass">{formatEth(card.price)} ETH</p>
+      ) : (
+        <p className="mt-2 font-display text-3xl text-mute">Not for sale</p>
+      )}
+      <p className="mt-1 text-xs text-mute">Market takes 2% on a successful buy.</p>
+
+      {error ? <p className="mt-3 text-sm text-alert">{error}</p> : null}
+      {status ? <p className="mt-3 text-sm text-brass">{status}</p> : null}
+
+      {!isConnected ? (
+        <p className="mt-5 text-sm text-mute">Connect a wallet to buy or list.</p>
+      ) : null}
 
       {isOwner && !card.listed ? (
-        <form onSubmit={onList} className="space-y-3">
-          <p className="text-sm text-mist">You hold this relic. Approve the market, then set an ask.</p>
+        <form onSubmit={onList} className="mt-5 space-y-3">
           {!approved.data ? (
-            <button type="button" disabled={busy} onClick={onApprove} className="action">
+            <button type="button" disabled={busy} onClick={onApprove} className="btn w-full">
               Approve marketplace
             </button>
           ) : (
             <>
-              <label className="block text-[0.65rem] uppercase tracking-[0.2em] text-gold">
-                Price in ETH
+              <label className="block text-[0.65rem] uppercase tracking-[0.16em] text-mute">
+                Ask price (ETH)
                 <input
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
@@ -155,7 +159,7 @@ export function TradePanel({
                   required
                 />
               </label>
-              <button type="submit" disabled={busy} className="action">
+              <button type="submit" disabled={busy} className="btn w-full">
                 List for sale
               </button>
             </>
@@ -164,10 +168,9 @@ export function TradePanel({
       ) : null}
 
       {isOwner && card.listed ? (
-        <form onSubmit={onUpdate} className="space-y-3">
-          <p className="text-sm text-mist">This card is listed. Change the ask or withdraw it.</p>
-          <label className="block text-[0.65rem] uppercase tracking-[0.2em] text-gold">
-            Price in ETH
+        <form onSubmit={onUpdate} className="mt-5 space-y-3">
+          <label className="block text-[0.65rem] uppercase tracking-[0.16em] text-mute">
+            Ask price (ETH)
             <input
               value={price}
               onChange={(e) => setPrice(e.target.value)}
@@ -176,31 +179,23 @@ export function TradePanel({
               required
             />
           </label>
-          <div className="flex flex-wrap gap-3">
-            <button type="submit" disabled={busy} className="action">
-              Update price
-            </button>
-            <button type="button" disabled={busy} onClick={onCancel} className="action-ghost">
-              Cancel listing
-            </button>
-          </div>
+          <button type="submit" disabled={busy} className="btn w-full">
+            Update price
+          </button>
+          <button type="button" disabled={busy} onClick={onCancel} className="btn-ghost w-full">
+            Delist
+          </button>
         </form>
       ) : null}
 
       {!isOwner && card.listed ? (
-        <div className="space-y-3">
-          <p className="text-sm text-mist">
-            Buy this relic for {formatEther(card.price)} ETH. A 2% cabinet fee stays in the market
-            contract.
-          </p>
-          <button type="button" disabled={busy} onClick={onBuy} className="action">
-            Buy for {formatEther(card.price)} ETH
-          </button>
-        </div>
+        <button type="button" disabled={busy || !isConnected} onClick={onBuy} className="btn mt-5 w-full">
+          Buy now
+        </button>
       ) : null}
 
-      {!isOwner && !card.listed ? (
-        <p className="text-sm text-mist">Held by another collector and not currently listed.</p>
+      {!isOwner && !card.listed && isConnected ? (
+        <p className="mt-5 text-sm text-mute">This card is in another wallet and has no ask.</p>
       ) : null}
     </section>
   );

@@ -2,10 +2,7 @@
 
 import { useAccount, useChainId, useConnect, useDisconnect, useSwitchChain } from "wagmi";
 import { hardhat, sepolia } from "wagmi/chains";
-
-function short(address: string) {
-  return `${address.slice(0, 6)}…${address.slice(-4)}`;
-}
+import { shortAddr } from "@/lib/format";
 
 export function WalletButton() {
   const { address, isConnected } = useAccount();
@@ -21,36 +18,36 @@ export function WalletButton() {
       <div className="flex flex-col items-end gap-1">
         <button
           type="button"
-          className="action"
+          className="btn"
           disabled={isPending || !injected}
           onClick={() => injected && connect({ connector: injected })}
         >
-          {isPending ? "Connecting…" : "Connect wallet"}
+          {isPending ? "Connecting" : "Connect"}
         </button>
-        {error ? <p className="max-w-xs text-right text-xs text-ember">{error.message}</p> : null}
+        {error ? <p className="max-w-[14rem] text-right text-[0.7rem] text-alert">{error.message}</p> : null}
       </div>
     );
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-end gap-3 text-sm">
+    <div className="flex items-center gap-2">
       {!supported ? (
         <button
           type="button"
-          className="action"
+          className="btn"
           disabled={isSwitching}
           onClick={() => switchChain({ chainId: hardhat.id })}
         >
-          Switch to Localhost
+          Switch network
         </button>
       ) : (
-        <span className="text-xs uppercase tracking-[0.18em] text-gold">
+        <span className="hidden rounded-full bg-plank px-2.5 py-1 text-[0.65rem] uppercase tracking-[0.14em] text-brass sm:inline">
           {chainId === hardhat.id ? "Localhost" : "Sepolia"}
         </span>
       )}
-      <span className="text-paper">{short(address)}</span>
-      <button type="button" className="action-ghost" onClick={() => disconnect()}>
-        Disconnect
+      <span className="hidden font-mono text-xs text-cream sm:inline">{shortAddr(address)}</span>
+      <button type="button" className="btn-ghost" onClick={() => disconnect()}>
+        Out
       </button>
     </div>
   );

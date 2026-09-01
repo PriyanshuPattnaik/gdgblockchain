@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState, type ReactNode } from "react";
+import { FormEvent, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount, useWriteContract } from "wagmi";
 import { waitForTransactionReceipt } from "wagmi/actions";
@@ -25,8 +25,17 @@ export function MintForm() {
   const [affinity, setAffinity] = useState<(typeof AFFINITIES)[number]>("Constellation");
   const [power, setPower] = useState(42);
   const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState("");
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+
+  const generated = useMemo(
+    () => generateCardArt({ name: name || "Untitled relic", rarity, element, power }),
+    [name, rarity, element, power]
+  );
+
+  const artSrc =
+    previewUrl || `data:image/svg+xml;utf8,${encodeURIComponent(generated)}`;
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -45,13 +54,11 @@ export function MintForm() {
     }
 
     try {
-      setStatus("Pinning image…");
-      const art =
-        file ??
-        svgFile(generateCardArt({ name, rarity, element, power }), name);
+      setStatus("Saving art");
+      const art = file ?? svgFile(generated, name);
       const imageUri = await pinToIpfs({ file: art });
 
-      setStatus("Pinning metadata…");
+      setStatus("Saving metadata");
       const metadata = {
         name: name.trim(),
         description: description.trim(),
@@ -65,7 +72,7 @@ export function MintForm() {
       };
       const tokenURI = await pinToIpfs({ json: metadata });
 
-      setStatus("Waiting for wallet signature…");
+      setStatus("Confirm in wallet");
       const hash = await writeContractAsync({
         address: card,
         abi: cardAbi,
@@ -73,7 +80,7 @@ export function MintForm() {
         args: [tokenURI],
       });
 
-      setStatus("Minting on-chain…");
+      setStatus("Minting on-chain");
       const receipt = await waitForTransactionReceipt(wagmiConfig, { hash });
       const minted = receipt.logs
         .map((log) => {
@@ -96,90 +103,110 @@ export function MintForm() {
   const busy = isPending || Boolean(status);
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
-      <Field label="Name">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="field"
-          placeholder="Lyra’s Shard"
-          required
-        />
-      </Field>
-      <Field label="Description">
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="field min-h-28"
-          placeholder="A splinter of the constellation that fell in the third dusk."
-          required
-        />
-      </Field>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Rarity">
-          <select value={rarity} onChange={(e) => setRarity(e.target.value as Rarity)} className="field">
-            {RARITIES.map((item) => (
-              <option key={item}>{item}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Element">
-          <select
-            value={element}
-            onChange={(e) => setElement(e.target.value as Element)}
-            className="field"
-          >
-            {ELEMENTS.map((item) => (
-              <option key={item}>{item}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Affinity">
-          <select value={affinity} onChange={(e) => setAffinity(e.target.value as typeof affinity)} className="field">
-            {AFFINITIES.map((item) => (
-              <option key={item}>{item}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label={`Power · ${power}`}>
+    <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_18rem]">
+      <form onSubmit={onSubmit} className="space-y-5">
+        <Field label="Name">
           <input
-            type="range"
-            min={1}
-            max={99}
-            value={power}
-            onChange={(e) => setPower(Number(e.target.value))}
-            className="w-full accent-gold"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="field"
+            placeholder="Lyra’s Shard"
+            required
           />
         </Field>
-      </div>
-      <Field label="Art (optional)">
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          className="text-sm text-mist file:mr-3 file:border-0 file:bg-gold file:px-3 file:py-1.5 file:text-ink"
-        />
-        <p className="mt-2 text-xs text-mist">
-          Skip this and we generate a unique constellation plate from the card’s traits.
-        </p>
-      </Field>
-      {error ? <p className="text-sm text-ember">{error}</p> : null}
-      {status ? <p className="text-sm text-gold">{status}</p> : null}
-      <button
-        type="submit"
-        disabled={busy}
-        className="bg-gold px-5 py-2.5 text-sm font-medium text-ink disabled:opacity-60"
-      >
-        {busy ? "Inscribing…" : "Mint card"}
-      </button>
-    </form>
+        <Field label="Lore">
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="field min-h-28"
+            placeholder="A splinter of the constellation that fell in the third dusk."
+            required
+          />
+        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Rarity">
+            <select value={rarity} onChange={(e) => setRarity(e.target.value as Rarity)} className="field">
+              {RARITIES.map((item) => (
+                <option key={item}>{item}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Element">
+            <select
+              value={element}
+              onChange={(e) => setElement(e.target.value as Element)}
+              className="field"
+            >
+              {ELEMENTS.map((item) => (
+                <option key={item}>{item}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Affinity">
+            <select
+              value={affinity}
+              onChange={(e) => setAffinity(e.target.value as typeof affinity)}
+              className="field"
+            >
+              {AFFINITIES.map((item) => (
+                <option key={item}>{item}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label={`Power ${power}`}>
+            <input
+              type="range"
+              min={1}
+              max={99}
+              value={power}
+              onChange={(e) => setPower(Number(e.target.value))}
+              className="mt-3 w-full accent-brass"
+            />
+          </Field>
+        </div>
+        <Field label="Custom art (optional)">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const next = e.target.files?.[0] ?? null;
+              setFile(next);
+              setPreviewUrl(next ? URL.createObjectURL(next) : "");
+            }}
+            className="text-sm text-mute file:mr-3 file:rounded-md file:border-0 file:bg-brass file:px-3 file:py-1.5 file:text-void"
+          />
+          <p className="mt-2 text-xs text-mute">
+            Skip this and we stamp a unique constellation plate from the traits. Art is stored off-chain; only a short link is minted.
+          </p>
+        </Field>
+        {error ? <p className="text-sm text-alert">{error}</p> : null}
+        {status ? <p className="text-sm text-brass">{status}</p> : null}
+        <button type="submit" disabled={busy} className="btn">
+          {busy ? status || "Working" : "Mint card"}
+        </button>
+      </form>
+
+      <aside className="lg:sticky lg:top-24">
+        <p className="mb-3 text-[0.65rem] uppercase tracking-[0.16em] text-mute">Live proof</p>
+        <div className="foil-legendary overflow-hidden rounded-xl bg-plank">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={artSrc} alt="Card preview" className="aspect-[5/7] w-full object-cover" />
+          <div className="px-3 py-3">
+            <p className="font-display text-xl">{name || "Untitled relic"}</p>
+            <p className="mt-1 text-[0.7rem] uppercase tracking-[0.14em] text-mute">
+              {rarity} · {element} · {power}
+            </p>
+          </div>
+        </div>
+      </aside>
+    </div>
   );
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-[0.65rem] uppercase tracking-[0.2em] text-gold">{label}</span>
+      <span className="mb-2 block text-[0.65rem] uppercase tracking-[0.16em] text-mute">{label}</span>
       {children}
     </label>
   );
